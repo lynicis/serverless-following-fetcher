@@ -1,5 +1,14 @@
-import { FollowingFetcherStrategyFactory } from "../followingFetcherStrategies/followingFetcherFactory";
+import {
+  FollowingFetcherStrategyFactory,
+  CachedFollowingsDTO,
+} from "../followingFetcherStrategies/followingFetcherFactory";
 import { APIGatewayEvent } from "aws-lambda";
+import { Redis } from "@upstash/redis";
+
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN,
+});
 
 const handler = async (
   event: APIGatewayEvent,
@@ -16,12 +25,34 @@ const handler = async (
     }
   }
 
+  const cachedFollowings = await redis.get<CachedFollowingsDTO>(`followings:${platformName}:${username}`);
+  if (cachedFollowings) {
+    const { followings, fetchedAt } = cachedFollowings;
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        followings,
+        fetchedAt,
+      }),
+    };
+  }
+
   try { 
     const followings = await fetchingStrategy.getFollowings(username);
 
+    const fetchedAt = new Date();
+    await redis.set<CachedFollowingsDTO>(
+      `followings:${platformName}:${username}`,
+      { followings, fetchedAt },
+      { ex: 24 * 60 * 60 },
+    );
+
     return {
       statusCode: 200,
-      body: JSON.stringify({ followings }),
+      body: JSON.stringify({
+        followings,
+        fetchedAt,
+      }),
     };
   } catch (err) {
     console.error("fetchFollowings error", err);

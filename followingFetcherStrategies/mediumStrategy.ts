@@ -10,13 +10,16 @@ import {
 
 export class MediumStrategy implements FollowingFetcherStrategy {
   public getFollowings = async (username: string): Promise<FollowingUser[]> => {
-    const browser = await puppeteer
-      .use(Stealth())
-      .launch({
-        args: chromium.args,
-        executablePath: await chromium.executablePath(),
-        headless: "shell",
-      });
+    const isLocal = Boolean(process.env.PUPPETEER_CHROMIUM_PATH);
+    const executablePath = isLocal
+      ? process.env.PUPPETEER_CHROMIUM_PATH
+      : await chromium.executablePath();
+
+    const browser = await puppeteer.use(Stealth()).launch({
+      args: isLocal ? [] : chromium.args,
+      executablePath,
+      headless: isLocal ? true : "shell",
+    });
 
     try {
       const page = await browser.newPage();
