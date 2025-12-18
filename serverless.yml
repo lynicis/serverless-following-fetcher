@@ -1,0 +1,32 @@
+org: lynicis
+app: ulak-scrapping
+service: ulak-scrapping
+plugins:
+  - serverless-offline
+
+build:
+  esbuild: 
+    bundle: true
+    external:
+      - "@sparticuz/chromium"
+      - puppeteer-core
+      - puppeteer-extra
+      - puppeteer-extra-plugin-stealth
+      - cheerio
+
+provider:
+  name: aws
+  runtime: nodejs22.x
+
+functions:
+  fetchFollowings:
+    handler: handlers/fetch-followings.handler
+    timeout: 60
+    events:
+      - http:
+          cors: true
+          method: GET
+          path: /followings/platforms/{platformName}/users/{username}
+          request:
+            schemas:
+              application/json: ${file(handlers/fetch-followings.schema.json)}
