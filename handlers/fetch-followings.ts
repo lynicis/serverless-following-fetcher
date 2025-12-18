@@ -4,15 +4,29 @@ import {
 } from "../followingFetcherStrategies/followingFetcherFactory";
 import { APIGatewayEvent } from "aws-lambda";
 import { Redis } from "@upstash/redis";
+import { z } from "zod/v4-mini";
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL,
   token: process.env.UPSTASH_REDIS_REST_TOKEN,
 });
 
+const schema = z.object({
+  platformName: z.enum(["MEDIUM", "X", "INSTAGRAM"]),
+  username: z.string(),
+});
+
 const handler = async (
   event: APIGatewayEvent,
 ) => {
+  const { success, error: validationError } = await schema.safeParseAsync(event.pathParameters);
+  if (!success) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: validationError.message })
+    };
+  }
+
   const { platformName, username } = event.pathParameters as { platformName: string, username: string };
 
   const fetchingStrategy = FollowingFetcherStrategyFactory.getStrategy(platformName);

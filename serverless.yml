@@ -15,6 +15,7 @@ build:
       - cheerio
       - "@upstash/redis"
       - fast-xml-parser
+      - zod/v4-mini
 
 provider:
   name: aws
@@ -41,7 +42,6 @@ functions:
 
   fetchContents:
     handler: handlers/fetch-contents.handler
-    timeout: 60
     environment:
       UPSTASH_REDIS_REST_URL: ${env:UPSTASH_REDIS_REST_URL}
       UPSTASH_REDIS_REST_TOKEN: ${env:UPSTASH_REDIS_REST_TOKEN}

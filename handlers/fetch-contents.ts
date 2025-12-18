@@ -6,15 +6,30 @@ import {
 } from "../contentFetcherStrategies/contentStrategyFactory";
 import { APIGatewayEvent } from "aws-lambda";
 import { Redis } from "@upstash/redis";
+import { z } from "zod/v4-mini";
 
 const redis = new Redis({
     url: process.env.UPSTASH_REDIS_REST_URL,
     token: process.env.UPSTASH_REDIS_REST_TOKEN,
 });
 
+const schema = z.object({
+    platformName: z.enum(["MEDIUM", "X", "INSTAGRAM"]),
+    username: z.string(),
+});
+
 const handler = async (event: APIGatewayEvent) => {
+    const { success, error: validationError } = await schema.safeParseAsync(event.pathParameters);
+    if (!success) {
+        return {
+            statusCode: 400,
+            body: JSON.stringify({ error: validationError.message })
+        };
+    }
+
     const { platformName, username } = event.pathParameters as { platformName: PlatformKeys, username: string };
     const since = event.queryStringParameters?.since as SinceDate || "all";
+
 
     const cachedContents = await redis.get<{ contents: ContentItem[], fetchedAt: Date }>(
         `contents:${platformName}:${username}:${since}`
