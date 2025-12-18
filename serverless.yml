@@ -14,6 +14,7 @@ build:
       - puppeteer-extra-plugin-stealth
       - cheerio
       - "@upstash/redis"
+      - fast-xml-parser
 
 provider:
   name: aws
@@ -33,5 +34,26 @@ functions:
           method: GET
           path: /followings/platforms/{platformName}/users/{username}
           request:
-            schemas:
-              application/json: ${file(handlers/fetch-followings.schema.json)}
+            parameters:
+              paths:
+                platformName: true
+                username: true
+
+  fetchContents:
+    handler: handlers/fetch-contents.handler
+    timeout: 60
+    environment:
+      UPSTASH_REDIS_REST_URL: ${env:UPSTASH_REDIS_REST_URL}
+      UPSTASH_REDIS_REST_TOKEN: ${env:UPSTASH_REDIS_REST_TOKEN}
+    events:
+      - http:
+          cors: true
+          method: GET
+          path: /contents/platforms/{platformName}/users/{username}
+          request:
+            parameters:
+              paths:
+                platformName: true
+                username: true
+              querystrings:
+                since: false
