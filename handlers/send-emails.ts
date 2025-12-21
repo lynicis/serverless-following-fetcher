@@ -1,10 +1,12 @@
 import { trackBatchEmailAnalytics, EmailAnalytics } from "../utils/email-analytics";
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
+import { LambdaClient, InvokeCommand } from "@aws-sdk/client-lambda";
 import { renderNewsletterEmail } from "../emails/render-email";
 import { createClient } from "@supabase/supabase-js";
 import { ScheduledEvent } from "aws-lambda";
 
 const ses = new SESClient({ region: process.env.AWS_REGION });
+const lambda = new LambdaClient({ region: process.env.AWS_REGION });
 const supabase = createClient(
     process.env.SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -93,15 +95,37 @@ function shouldSendNewsletter(
 }
 
 async function getContentsByPlatformAndUsername(platform: string, username: string): Promise<any> {
-    const requestUrl = new URL(`/contents/platforms/${platform}/users/${username}`, process.env.BASE_URL);
-    requestUrl.searchParams.set("since", "today");
+    const functionName = process.env.FETCH_CONTENTS_FUNCTION_NAME || `${process.env.AWS_LAMBDA_FUNCTION_NAME?.split('-').slice(0, -1).join('-')}-fetchContents`;
 
-    const resp = await fetch(requestUrl);
-    if (!resp.ok) {
-        throw new Error("failed to get contents");
+    const payload = {
+        pathParameters: {
+            platformName: platform.toUpperCase(),
+            username,
+        },
+        queryStringParameters: {
+            since: "today",
+        },
+    };
+
+    const command = new InvokeCommand({
+        FunctionName: functionName,
+        InvocationType: "RequestResponse",
+        Payload: JSON.stringify(payload),
+    });
+
+    const response = await lambda.send(command);
+
+    if (!response.Payload) {
+        throw new Error("No response from Lambda function");
     }
 
-    return resp.json();
+    const result = JSON.parse(Buffer.from(response.Payload).toString());
+
+    if (result.statusCode !== 200) {
+        throw new Error(`Lambda invocation failed: ${result.body}`);
+    }
+
+    return JSON.parse(result.body);
 }
 
 const handler = async (_event: ScheduledEvent) => {

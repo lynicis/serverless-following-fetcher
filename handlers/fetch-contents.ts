@@ -4,7 +4,7 @@ import {
     PlatformKeys,
     SinceDate,
 } from "../contentFetcherStrategies/contentStrategyFactory";
-import { APIGatewayProxyHandler } from "aws-lambda";
+import { Handler } from "aws-lambda";
 import { Redis } from "@upstash/redis";
 import { z } from "zod/v4-mini";
 
@@ -18,7 +18,17 @@ const schema = z.object({
     username: z.string(),
 });
 
-export const handler: APIGatewayProxyHandler = async (event) => {
+type FetchContentsEvent = {
+    pathParameters: {
+        platformName: string;
+        username: string;
+    };
+    queryStringParameters?: {
+        since?: string;
+    };
+};
+
+export const handler: Handler<FetchContentsEvent> = async (event) => {
     const { success, error: validationError } = await schema.safeParseAsync(event.pathParameters);
     if (!success) {
         return {
@@ -30,7 +40,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const { platformName, username } = event.pathParameters as { platformName: PlatformKeys, username: string };
     const since = event.queryStringParameters?.since as SinceDate || "all";
 
-
     const cachedContents = await redis.get<{ contents: ContentItem[], fetchedAt: Date }>(
         `contents:${platformName}:${username}:${since}`
     );
@@ -40,7 +49,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
             statusCode: 200,
             body: JSON.stringify({ contents, fetchedAt })
         };
-    } 
+    }
 
     const fetchingStrategy = ContentFetcherStrategyFactory.getStrategy(platformName);
     const contents = await fetchingStrategy.fetchContent(username, since);
@@ -50,7 +59,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         `contents:${platformName}:${username}:${since}`,
         { contents, fetchedAt },
         { ex: 24 * 60 * 60 },
-    ); 
+    );
 
     return {
         statusCode: 200,

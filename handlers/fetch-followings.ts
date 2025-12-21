@@ -80,11 +80,19 @@ const searchFollowings = async (
   }));
 };
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": process.env.WEBSITE_URL || "*",
+  "Access-Control-Allow-Credentials": "false",
+  "Access-Control-Allow-Methods": "GET,OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type,Authorization",
+};
+
 export const handler: APIGatewayProxyHandler = async (event) => {
   const { success, error: validationError } = await schema.safeParseAsync(event.pathParameters);
   if (!success) {
     return {
       statusCode: 400,
+      headers: CORS_HEADERS,
       body: JSON.stringify({ error: validationError.message })
     };
   }
@@ -98,6 +106,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   if (!isUserExists) {
     return {
       statusCode: 404,
+      headers: CORS_HEADERS,
       body: JSON.stringify({ error: "user not found" }),
     }
   }
@@ -110,6 +119,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       if (searchResults.length > 0 || cachedFollowings.fetchedAt) {
         return {
           statusCode: 200,
+          headers: CORS_HEADERS,
           body: JSON.stringify({
             followings: searchResults,
             fetchedAt: cachedFollowings.fetchedAt,
@@ -131,9 +141,10 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       await storeFollowingsForSearch(platformName, username, followings);
       
       const searchResults = await searchFollowings(platformName, username, searchQuery);
-      
+
       return {
         statusCode: 200,
+        headers: CORS_HEADERS,
         body: JSON.stringify({
           followings: searchResults,
           fetchedAt,
@@ -142,6 +153,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     } catch (err) {
       return {
         statusCode: 500,
+        headers: CORS_HEADERS,
         body: JSON.stringify({
           error: "internal_error",
           message: err instanceof Error ? err.message : "Unknown error",
@@ -155,6 +167,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const { followings, fetchedAt } = cachedFollowings;
     return {
       statusCode: 200,
+      headers: CORS_HEADERS,
       body: JSON.stringify({
         followings,
         fetchedAt,
@@ -176,6 +189,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     return {
       statusCode: 200,
+      headers: CORS_HEADERS,
       body: JSON.stringify({
         followings,
         fetchedAt,
@@ -184,6 +198,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   } catch (err) {
     return {
       statusCode: 500,
+      headers: CORS_HEADERS,
       body: JSON.stringify({
         error: "internal_error",
         message: err instanceof Error ? err.message : "Unknown error",

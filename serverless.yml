@@ -26,6 +26,14 @@ build:
 provider:
   name: aws
   runtime: nodejs22.x
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - lambda:InvokeFunction
+          Resource:
+            - arn:aws:lambda:${aws:region}:${aws:accountId}:function:${self:service}-${sls:stage}-fetchContents
 
 params:
   default:
@@ -47,6 +55,7 @@ functions:
       UPSTASH_REDIS_REST_TOKEN: ${env:UPSTASH_REDIS_REST_TOKEN}
       UPSTASH_SEARCH_REST_URL: ${env:UPSTASH_SEARCH_REST_URL}
       UPSTASH_SEARCH_REST_TOKEN: ${env:UPSTASH_SEARCH_REST_TOKEN}
+      WEBSITE_URL: ${env:WEBSITE_URL}
     events:
       - http:
           method: GET
@@ -67,29 +76,16 @@ functions:
     environment:
       UPSTASH_REDIS_REST_URL: ${env:UPSTASH_REDIS_REST_URL}
       UPSTASH_REDIS_REST_TOKEN: ${env:UPSTASH_REDIS_REST_TOKEN}
-    events:
-      - http:
-          method: GET
-          path: /contents/platforms/{platformName}/users/{username}
-          cors:
-            origin: ${param:corsOrigin}
-            headers:
-              - Content-Type
-              - Authorization
-            allowCredentials: false
-          authorizer:
-            name: supabaseAuthorizer
-            type: token
-            identitySource: method.request.header.Authorization
+      WEBSITE_URL: ${env:WEBSITE_URL}
 
   send-emails:
     handler: handlers/send-emails.handler
     environment:
       SUPABASE_URL: ${env:SUPABASE_URL}
       SUPABASE_SERVICE_ROLE_KEY: ${env:SUPABASE_SERVICE_ROLE_KEY}
-      BASE_URL: ${env:BASE_URL}
       SES_FROM_EMAIL: ${env:SES_FROM_EMAIL}
       WEBSITE_URL: ${env:WEBSITE_URL}
+      FETCH_CONTENTS_FUNCTION_NAME: ${self:service}-${sls:stage}-fetchContents
     events:
       - schedule: rate(1 hour)
 
